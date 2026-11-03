@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mount Kenya Wildfire Risk</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; }
+    #panel {
+      position: absolute; top: 10px; right: 10px; z-index: 1000; width: 280px;
+      max-height: calc(100% - 20px); overflow-y: auto;
+      background: #fff; padding: 10px 12px; border-radius: 8px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.3); font: 13px sans-serif;
+    }
+    #panel label { display: block; margin-top: 8px; font-weight: 600; }
+    #panel select { width: 100%; }
+    #panel input[type=range] { flex: 1; }
+    .row { display: flex; gap: 6px; align-items: center; }
+    #info { margin-top: 10px; line-height: 1.5; }
+    #track table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 12px; }
+    #track th { text-align: left; font-weight: 600; color: #555; padding: 2px 0; }
+    #track td { padding: 2px 0; }
+    #track i, .legend i, .toprow i {
+      display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: middle;
+    }
+    #top { margin-top: 12px; }
+    #top .hint { font-size: 11px; color: #666; margin: 2px 0 4px; }
+    .toprow {
+      display: flex; align-items: center; gap: 4px; padding: 3px 4px;
+      border-radius: 4px; cursor: pointer; font-size: 12px;
+    }
+    .toprow:hover { background: #eef3fb; }
+    .toprow .rank { width: 20px; color: #666; text-align: right; }
+    .toprow .loc { flex: 1; }
+    .toprow .fire { color: #0B3D91; font-weight: 700; }
+    details { margin-top: 10px; font-size: 12px; line-height: 1.5; }
+    details summary { cursor: pointer; font-weight: 600; }
+    .legend {
+      background: white; padding: 8px 12px; border-radius: 6px;
+      font: 13px sans-serif; line-height: 1.7; box-shadow: 0 1px 5px rgba(0,0,0,.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div id="panel">
+    <b>Mount Kenya Wildfire Risk</b>
+    <label>Colour by</label>
+    <select id="mode">
+      <option value="risk">Predicted risk (back-test)</option>
+      <option value="history">Fire history 2001–2025</option>
+    </select>
+
+    <div id="riskControls">
+      <label>Year</label>
+      <select id="year"></select>
+      <label>8-day period number: <span id="periodLabel"></span></label>
+      <div class="row">
+        <button id="prev">◀</button>
+        <input type="range" id="period" min="0" max="45" value="8">
+        <button id="next">▶</button>
+      </div>
+      <label><input type="checkbox" id="showFires" checked> Outline cells where a new fire started next</label>
+    </div>
+
+    <div id="info"></div>
+
+    <div id="riskExtras">
+      <div id="top"></div>
+      <div id="track" style="margin-top:12px"></div>
+    </div>
+
+    <details open>
+      <summary>How to read this map</summary>
+      The colours <b>rank</b> squares from lowest to highest relative risk. They do not say a fire
+      will start: most Very High squares have no fire in the next 8 days. The model sees dryness,
+      heat and terrain, but not ignition sources such as people. Use it to decide where to look
+      first. The top-20 list ranks squares within the chosen period, and the table shows how often
+      a new fire followed each colour in back-testing on years the model never saw.
+    </details>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const fmt = (v, d = 0) => (v == null ? "n/a" : Number(v).toFixed(d));
+
+    const BANDS = [
+      { name: "Low",       color: "#2E9E5B" },
+      { name: "Moderate",  color: "#F2C94C" },
+      { name: "High",      color: "#F2994A" },
+      { name: "Very High", color: "#D64545" }
+    ];
+    const HISTORY = [
+      { label: "0 years",   color: "#2E9E5B", test: n => n === 0 },
+      { label: "1–2 years", color: "#F2C94C", test: n => n >= 1 && n <= 2 },
+      { label: "3–5 years", color: "#F2994A", test: n => n >= 3 && n <= 5 },
+      { label: "6+ years",  color: "#D64545", test: n => n >= 6 }
+    ];
+    const histColor = n => (HISTORY.find(l => l.test(n)) || HISTORY[0]).color;
+
+    let mode = "risk", risk = {}, bandStats = [], layer = null, selected = null;
+    const cellLayers = {};   // cell_id -> { layer, p }
+
+    const modeSel = document.getElementById("mode");
+    const yearSel = document.getElementById("year");
+    const periodRange = document.getElementById("period");
+    const periodLabel = document.getElementById("periodLabel");
+    const showFires = document.getElementById("showFires");
+    const riskControls = document.getElementById("riskControls");
+    const riskExtras = document.getElementById("riskExtras");
+    const info = document.getElementById("info");
+    const track = document.getElementById("track");
+    const topBox = document.getElementById("top");
+    const panel = document.getElementById("panel");
+
+    for (let y = 2001; y <= 2025; y++) yearSel.add(new Option(y, y));
+    yearSel.value = 2019;
+    periodLabel.textContent = periodRange.value;
+
+    // ---------- map ----------
+    const map = L.map("map").setView([-0.15, 37.31], 10);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+    L.DomEvent.disableClickPropagation(panel);
+    L.DomEvent.disableScrollPropagation(panel);
+
+    const legendDiv = L.DomUtil.create("div", "legend");
+    const legend = L.control({ position: "bottomleft" });
+    legend.onAdd = () => legendDiv;
+    legend.addTo(map);
+
+    function updateLegend() {
+      if (mode === "risk") {
+        legendDiv.innerHTML = "<b>Relative risk rank</b><br>" +
+          BANDS.map(b => `<i style="background:${b.color}"></i>${b.name}`).join("<br>") +
+          `<br><i style="background:#999;opacity:.4"></i>No score` +
+          `<br><i style="background:#fff;border:3px solid #0B3D91;box-sizing:border-box"></i>New fire next period` +
+          "<br><small>A ranking, not a forecast. Each square = 1 km × 1 km</small>";
+      } else {
+        legendDiv.innerHTML = "<b>Years with fire<br>(2001–2025)</b><br>" +
+          HISTORY.map(l => `<i style="background:${l.color}"></i>${l.label}`).join("<br>") +
+          "<br><small>Each square = 1 km × 1 km</small>";
+      }
+    }
+
+    // ---------- styling and popups ----------
+    function styleFor(feature) {
+      const p = feature.properties;
+      if (mode === "history") {
+        return { color: "#555", weight: 0.5, fillOpacity: 0.55, fillColor: histColor(p.years_burned) };
+      }
+      const r = risk[p.cell_id];
+      const fire = r && r[2] === 1 && showFires.checked;
+      return {
+        color: fire ? "#0B3D91" : "#555",
+        weight: fire ? 3 : 0.5,
+        fillOpacity: r ? 0.6 : 0.15,
+        fillColor: r ? BANDS[r[1]].color : "#999"
+      };
+    }
+
+    function trackLine(band) {
+      const b = bandStats[band];
+      if (!b) return "";
+      const oneIn = b.one_in ? `about 1 in ${b.one_in.toLocaleString()}` : "none";
+      return `In back-testing, ${oneIn} cells rated ${b.name} had a new fire in the next 8 days ` +
+             `(${b.lift}× the average).`;
+    }
+
+    function tooltipText(p) {
+      if (mode === "history") return `${fmt(p.lat, 3)}°, ${fmt(p.lon, 3)}°  |  burned in ${p.years_burned} of 25 years`;
+      const r = risk[p.cell_id];
+      return `${fmt(p.lat, 3)}°, ${fmt(p.lon, 3)}°  |  ${r ? BANDS[r[1]].name + " risk rank" : "no score"}`;
+    }
+
+    function popupHtml(p) {
+      let riskLine = "";
+      if (mode === "risk") {
+        const r = risk[p.cell_id];
+        riskLine = r
+          ? `Risk rank: <b>${BANDS[r[1]].name}</b> (model score ${r[0].toFixed(3)})<br>` +
+            `<small>${trackLine(r[1])}</small><br>` +
+            `New fire started next period: <b>${r[2] ? "Yes" : "No"}</b><br>`
+          : "No score for this cell and period<br>";
+      }
+      return `<b>Cell at ${fmt(p.lat, 3)}°, ${fmt(p.lon, 3)}°</b><br>` + riskLine +
+        `Burned in ${p.years_burned} of 25 years (2001–2025)<br>` +
+        `Elevation: ${fmt(p.elevation)} m<br>Slope: ${fmt(p.slope, 1)}°<br>` +
+        `<a href="https://www.google.com/maps?q=${p.lat},${p.lon}" target="_blank">Open in Google Maps</a>` +
+        `<br><small>ID: ${p.cell_id}</small>`;
+    }
+
+    function selectCell(cell) {
+      if (selected) layer.resetStyle(selected);
+      selected = cell;
+      cell.setStyle({ weight: 4, color: "#000" });
+    }
+
+    // ---------- panel content ----------
+    function renderTrack() {
+      if (!bandStats.length) { track.innerHTML = ""; return; }
+      track.innerHTML = "<b>Back-test track record</b><table>" +
+        "<tr><th>Rank</th><th>Fire in next 8 days</th><th>vs average</th></tr>" +
+        bandStats.map((b, i) =>
+          `<tr><td><i style="background:${BANDS[i].color}"></i>${b.name}</td>` +
+          `<td>${b.one_in ? "1 in " + b.one_in.toLocaleString() : "none seen"}</td>` +
+          `<td>${b.lift}×</td></tr>`).join("") +
+        "</table>";
+    }
+
+    function renderTop() {
+      const entries = Object.entries(risk);
+      if (!entries.length || !Object.keys(cellLayers).length) { topBox.innerHTML = ""; return; }
+      entries.sort((a, b) => b[1][0] - a[1][0]);
+      const rows = entries.slice(0, 20).map(([id, r], i) => {
+        const c = cellLayers[id];
+        if (!c) return "";
+        return `<div class="toprow" data-id="${id}">` +
+          `<span class="rank">${i + 1}.</span>` +
+          `<i style="background:${BANDS[r[1]].color}"></i>` +
+          `<span class="loc">${fmt(c.p.lat, 3)}°, ${fmt(c.p.lon, 3)}°</span>` +
+          `<span>${r[0].toFixed(3)}</span>` +
+          (r[2] ? ` <span class="fire" title="A new fire started here next period">●</span>` : "") +
+          `</div>`;
+      }).join("");
+      topBox.innerHTML = "<b>Top 20 cells this period</b>" +
+        `<div class="hint">Ranked by model score. Click a row to zoom to it. ` +
+        `<span class="fire">●</span> = a new fire followed.</div>` + rows;
+    }
+
+    topBox.addEventListener("click", e => {
+      const row = e.target.closest(".toprow");
+      if (!row) return;
+      const c = cellLayers[row.dataset.id];
+      if (!c) return;
+      map.fitBounds(c.layer.getBounds(), { maxZoom: 13 });
+      selectCell(c.layer);
+      c.layer.openPopup();
+    });
+
+    function summarise() {
+      const counts = [0, 0, 0, 0];
+      let fires = 0, firesHigh = 0;
+      for (const id in risk) {
+        const [, band, fire] = risk[id];
+        counts[band]++;
+        if (fire) { fires++; if (band >= 2) firesHigh++; }
+      }
+      const total = counts.reduce((a, b) => a + b, 0);
+      if (!total) return "No scores for this period (early 2001 and the final period have none).";
+      return `Cells scored: ${total}<br>` +
+        BANDS.map((b, i) => `${b.name}: ${counts[i]}`).join(" · ") +
+        `<br>New fires next period: <b>${fires}</b>` +
+        (fires ? ` (${firesHigh} in High / Very High cells)` : "");
+    }
+
+    async function loadRisk() {
+      info.textContent = "Loading…";
+      const res = await fetch(`/api/risk?year=${yearSel.value}&period=${periodRange.value}`);
+      const d = await res.json();
+      risk = d.cells;
+      bandStats = d.bands || [];
+      renderTrack();
+      renderTop();
+      info.innerHTML = `<b>${d.start} to ${d.end}</b><br>${summarise()}`;
+      if (layer) layer.setStyle(styleFor);
+    }
+
+    function applyMode() {
+      mode = modeSel.value;
+      const show = mode === "risk" ? "block" : "none";
+      riskControls.style.display = show;
+      riskExtras.style.display = show;
+      updateLegend();
+      if (mode === "risk") loadRisk();
+      else {
+        info.innerHTML = "Number of years (out of 25) in which each square had a new fire.";
+        if (layer) layer.setStyle(styleFor);
+      }
+    }
+
+    // ---------- controls ----------
+    modeSel.addEventListener("change", applyMode);
+    yearSel.addEventListener("change", loadRisk);
+    periodRange.addEventListener("input", () => { periodLabel.textContent = periodRange.value; });
+    periodRange.addEventListener("change", loadRisk);
+    showFires.addEventListener("change", () => { if (layer) layer.setStyle(styleFor); });
+    document.getElementById("prev").addEventListener("click", () => {
+      periodRange.value = Math.max(0, +periodRange.value - 1);
+      periodLabel.textContent = periodRange.value; loadRisk();
+    });
+    document.getElementById("next").addEventListener("click", () => {
+      periodRange.value = Math.min(45, +periodRange.value + 1);
+      periodLabel.textContent = periodRange.value; loadRisk();
+    });
+
+    // ---------- load the grid, then the first period ----------
+    updateLegend();
+    fetch("/api/grid")
+      .then(r => r.json())
+      .then(data => {
+        layer = L.geoJSON(data, {
+          style: styleFor,
+          onEachFeature: (feature, cell) => {
+            const p = feature.properties;
+            cellLayers[p.cell_id] = { layer: cell, p: p };
+            cell.bindTooltip(() => tooltipText(p));
+            cell.bindPopup(() => popupHtml(p));
+            cell.on("click", () => selectCell(cell));
+          }
+        }).addTo(map);
+        map.fitBounds(layer.getBounds());
+        loadRisk();
+      });
+  </script>
+</body>
+</html>

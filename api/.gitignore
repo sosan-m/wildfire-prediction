@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.vscode/
+
+# Large generated files (rebuilt by the scripts)
+data/training_table.pkl
+data/risk_scores.pkl
+data/features/
+*.joblib
