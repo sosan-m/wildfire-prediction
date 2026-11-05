@@ -6,3 +6,4 @@ data/training_table.pkl
 data/risk_scores.pkl
 data/features/
 *.joblib
+data/*.pkl

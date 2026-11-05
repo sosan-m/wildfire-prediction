@@ -28,6 +28,8 @@ FEATURES = [
 # but only 30 "no fire" rows for each fire row
 NO_FIRE_PER_FIRE = 30
 
+HORIZON = 3    # must match the number used in build_training_table.py
+
 # A random number generator with a fixed seed, so results are repeatable
 rng = np.random.default_rng(0)
 
@@ -35,7 +37,7 @@ rng = np.random.default_rng(0)
 # ------------------------------------------------------------------
 # STEP 1: LOAD THE DATA
 # ------------------------------------------------------------------
-df = pd.read_pickle("data/training_table.pkl")
+df = pd.read_pickle(f"data/training_table_h{HORIZON}.pkl")
 print("Loaded", df.shape)
 
 
@@ -204,10 +206,10 @@ scores_table["band"] = np.digitize(scores_table["score"], cuts).astype("int8")
 
 # Save for the website
 scores_table["cell_id"] = scores_table["cell_id"].astype("category")
-scores_table.to_pickle("data/risk_scores.pkl")
+scores_table.to_pickle(f"data/risk_scores_h{HORIZON}.pkl")
 
 band_info = {"cuts": cuts, "names": ["Low", "Moderate", "High", "Very High"]}
-with open("data/risk_bands.json", "w") as file:
+with open(f"data/risk_bands_h{HORIZON}.json", "w") as file:
     json.dump(band_info, file)
 
 # Check: the share of fires should rise from Low to Very High
@@ -230,5 +232,5 @@ importance = importance.sort_values(ascending=False)
 print("\nFeature importance:")
 print(importance.round(3))
 
-joblib.dump({"model": final_model, "features": FEATURES}, "ml/model.joblib")
+joblib.dump({"model": final_model, "features": FEATURES}, 	f"ml/model_h{HORIZON}.joblib")
 print("\nSaved ml/model.joblib")
