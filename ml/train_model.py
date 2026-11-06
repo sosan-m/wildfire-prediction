@@ -22,6 +22,9 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 FEATURES = [
     "ndvi", "ndmi", "lst", "rain", "rain_3p", "rain_6p", "rain_12p",
     "ndvi_age", "lst_age", "elevation", "slope", "period",
+    # new in this experiment
+    "ndvi_anom", "ndmi_anom", "lst_anom", "rain_6p_anom", "rain_12p_anom",
+    "ndvi_change_3p", "ndmi_change_3p", "lst_change_3p", "dry_streak",
 ]
 
 # Fires are very rare, so for training we keep every fire row

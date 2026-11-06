@@ -78,6 +78,36 @@ for window in [3, 6, 12]:
 
 
 # ------------------------------------------------------------------
+# STEP 4B: NEW COLUMNS - HOW FAR IS EACH VALUE FROM NORMAL?
+# ------------------------------------------------------------------
+# "Normal" for a cell = its average value in the same period of the year,
+# across all the years. We subtract it from the current value.
+columns_to_compare = ["ndvi", "ndmi", "lst", "rain_6p", "rain_12p"]
+
+for column in columns_to_compare:
+    normal = df.groupby(["cell_id", "period"])[column].transform("mean")
+    df[column + "_anom"] = df[column] - normal
+
+# Quick check (you can delete this later): the average should be close to 0
+print(df[["ndmi", "ndmi_anom"]].describe())
+
+# ------------------------------------------------------------------
+# STEP 4C: NEW COLUMNS - HOW FAST IS IT CHANGING, AND HOW LONG HAS IT BEEN DRY?
+# ------------------------------------------------------------------
+# Change over the last 3 periods (24 days): now minus 3 periods ago
+for column in ["ndvi", "ndmi", "lst"]:
+    df[column + "_change_3p"] = df.groupby("cell_id")[column].diff(3)
+
+# Dry streak: how many periods in a row had less than 10 mm of rain
+DRY_MM = 10
+is_dry = (df["rain"] < DRY_MM).astype("int16")      # 1 = dry period, 0 = wet period
+wet_count = (1 - is_dry).groupby(df["cell_id"]).cumsum()   # goes up by 1 at every wet period
+df["dry_streak"] = is_dry.groupby([df["cell_id"], wet_count]).cumsum()
+
+# Quick check (you can delete this later)
+print(df[["ndmi_change_3p", "dry_streak"]].describe())
+
+# ------------------------------------------------------------------
 # STEP 5: ADD THE FIXED FEATURES (ELEVATION AND SLOPE)
 # ------------------------------------------------------------------
 with open("data/mtkenya_grid_1km.geojson") as file:
@@ -133,7 +163,8 @@ df = df[df["t"] <= last_period - HORIZON]
 df = df[df["fire_now"] == 0]
 
 # Drop rows that are still missing key values
-needed = ["ndvi", "ndmi", "lst", "rain_12p", "ndvi_age", "lst_age"]
+needed = ["ndvi", "ndmi", "lst", "rain_12p", "ndvi_age", "lst_age",
+          "ndvi_change_3p", "ndmi_change_3p", "lst_change_3p"]
 df = df.dropna(subset=needed)
 
 # Use less memory
