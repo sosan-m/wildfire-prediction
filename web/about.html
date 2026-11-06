@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About | Mount Kenya Wildfire Risk Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/about.css">
+</head>
+<body class="page">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c.9 3.6-2.9 5.6-2.9 9.6 0 1.2.5 2.2 1.2 2.9-.1-1.7.6-3 1.7-4 .2 1.3 1 2.2 1.9 3 .3-1 .2-2-.1-3 2.1 1.6 3.2 3.5 3.2 5.6a5 5 0 0 1-10 0C6 11 11 8.5 12 2z"/></svg>
+      </span>
+      <span class="brand-name">Mount Kenya Wildfire Risk Monitor</span>
+    </div>
+    <nav>
+      <a class="navlink" href="/">Map</a>
+      <a class="navlink active" href="/about">About</a>
+    </nav>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <span class="tag">Course project · Prototype</span>
+      <h1>Ranking wildfire risk across the Mount Kenya forest</h1>
+      <p>Wildfires are a growing threat to forests, water supplies and livelihoods, yet most fire
+      management in Kenya reacts after a fire has started. This prototype uses free satellite data and
+      machine learning to rank which 1 km squares of the Mount Kenya forest are most at risk in each
+      8-day period, so rangers and conservancies can decide where to look first.</p>
+      <a class="btn" href="/">Open the map →</a>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="section">
+    <div class="container">
+      <h2>How it works</h2>
+      <p class="intro">Three steps turn satellite readings into a risk map.</p>
+      <div class="flow">
+        <div class="flowcard">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/></svg></div>
+          <div class="stepno">Step 1</div>
+          <h3>Satellite data</h3>
+          <p>Every 8 days we gather vegetation greenness and moisture, surface temperature and rainfall for each 1 km square of the forest, plus its elevation and slope.</p>
+        </div>
+        <div class="flowarrow" aria-hidden="true">→</div>
+        <div class="flowcard">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><path d="M12 7v4"/><path d="M12 11 6 17"/><path d="m12 11 6 6"/></svg></div>
+          <div class="stepno">Step 2</div>
+          <h3>Machine learning model</h3>
+          <p>A Random Forest learns from 25 years of history which conditions came before new fires, and is tested on years it has never seen.</p>
+        </div>
+        <div class="flowarrow" aria-hidden="true">→</div>
+        <div class="flowcard">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14"/><path d="M15 6v14"/></svg></div>
+          <div class="stepno">Step 3</div>
+          <h3>Risk map</h3>
+          <p>Each square is ranked from Low to Very High and shown on the map, together with the conditions behind its rank.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Data sources -->
+  <section class="section alt">
+    <div class="container">
+      <h2>Data sources</h2>
+      <p class="intro">All inputs are free and openly available through Google Earth Engine.</p>
+      <div class="cards4">
+        <div class="srccard">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></div>
+          <h3>MODIS satellite imagery</h3>
+          <p>NASA sensors give vegetation greenness (NDVI), vegetation moisture (NDMI) and land surface temperature.</p>
+        </div>
+        <div class="srccard">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/></svg></div>
+          <h3>CHIRPS rainfall</h3>
+          <p>Daily rainfall estimates, added up per period and over recent weeks to show dry spells.</p>
+        </div>
+        <div class="srccard">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 20 6-11 4 6 2-3 6 8H3Z"/></svg></div>
+          <h3>SRTM elevation</h3>
+          <p>A global terrain survey, used for each square's elevation and slope.</p>
+        </div>
+        <div class="srccard">
+          <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4-4 6-4 11a4 4 0 0 0 8 0c0-2-1-3-2-4 0 2-1 3-2 3 1-3 1-6 0-10Z"/></svg></div>
+          <h3>MODIS burned-area records</h3>
+          <p>Where and when land burned since 2001. These are the real fires the model learns from.</p>
+        </div>
+      </div>
+      <p class="small muted">The study area follows the official protected-area boundary (WDPA) around Mount Kenya.</p>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section class="section">
+    <div class="container">
+      <h2>How well does it work?</h2>
+      <p class="intro">Tested on years the model had never seen.</p>
+      <div class="stats">
+        <div class="stat"><b>1,996</b><span>one-kilometre squares</span></div>
+        <div class="stat"><b>25</b><span>years of history (2001–2025)</span></div>
+        <div class="stat"><b>849</b><span>recorded fire events</span></div>
+        <div class="stat"><b>75%</b><span>of new fires fell in the top 5% of ranked squares</span></div>
+      </div>
+      <p>The colours are a <b>ranking</b>, not a forecast. Even among Very High squares, a new fire follows
+      in the next 8 days only about 1 time in 120. That is around 30 times the average, which is why
+      the map is meant to show where to look first, not to predict a particular fire.</p>
+    </div>
+  </section>
+
+  <!-- Limitations -->
+  <section class="section alt">
+    <div class="container">
+      <h2>Limitations</h2>
+      <p class="intro">What this prototype can and cannot tell you.</p>
+      <div class="limits">
+        <div class="limit"><b>Coarse resolution</b><span>Each square is 1 km across, so squares at the forest edge mix forest with other land.</span></div>
+        <div class="limit"><b>Cloud gaps</b><span>Clouds hide the ground. Missing readings are filled with the last clear one for up to 3 periods.</span></div>
+        <div class="limit"><b>Summit zone excluded</b><span>The high moorland and peaks inside the national park are outside the study area.</span></div>
+        <div class="limit"><b>People are not modelled</b><span>Most ignitions are started by people, and the model cannot see them. Satellites can also miss small fires.</span></div>
+        <div class="limit"><b>Not live yet</b><span>The map replays predictions for past periods. It is not yet connected to current satellite data.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <b>Mount Kenya Wildfire Risk Monitor</b>
+      <span>SWE 3090A · USIU-Africa · Course project</span>
+    </div>
+  </footer>
+
+</body>
+</html>
